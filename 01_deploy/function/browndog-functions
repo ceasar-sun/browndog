@@ -1,0 +1,221 @@
+#!/bin/sh
+
+####################################################
+# BrownDog Project
+#
+# Name: browndog-functions
+#
+# Description: Define global sub functions at browndog environment
+#
+# Author:
+#			Ceasar Sun <ceasar_at_nchc_org_tw>
+####################################################
+
+_LOAD_BROWNDOG_FUNCTIONS=y
+
+[ -z "$SETCOLOR_SUCCESS" ] && SETCOLOR_SUCCESS="echo -en \\033[1;32m"
+[ -z "$SETCOLOR_FAILURE" ] && SETCOLOR_FAILURE="echo -en \\033[1;31m"
+[ -z "$SETCOLOR_WARNING" ] && SETCOLOR_WARNING="echo -en \\033[1;33m"
+[ -z "$SETCOLOR_NORMAL"  ] && SETCOLOR_NORMAL="echo -en \\033[0;39m"
+
+_USAGE(){
+	echo "Usage: $0 [-v] [-b|--batch] [-c|--checkenv][-d|--debug] [-p|--purge] [-d|--debug] [--help] [-I|--import-user user_id] [-o|--isoname given_name.iso] [--mkinitrd] [--mkrootfs] [--mkiso] [--outputdir /full/path/] [--tmpdir /full/path] [--rootfs_method [unionfs|dm_snapshot]] [--drbl-mode]"
+	echo " --outputdir [path]	Setup tux2live output dir , make sure it has enough space !!!"
+	echo " --tmpdir [path]	Setup tux2live tmp dir , make sure it has enough space !!!"
+	echo " --rootfs_method [unionfs|dm_snapshot]	Specify live system root FS method, alternative 'unionfs' or 'dm_snapshot' "
+	echo " --mkinitrd	Create initrd, not for all action"
+	echo " --mkrootfs	Create rootfs,  not for all action"
+	echo " --mkiso	Create iso, not for all action"
+	echo " -b, --batch        Batch mode, it wouldn't import any user data if no use '-I user' in batch mode"
+	echo " -c, --checkenv     Check if system does prepare need component to run tux2live"
+	echo " -d, --debug        Debug mode: keep all tmp file and display each used commands "
+	echo " -p, --purge        Purge mode: remove all input and unnecessary output after each action"
+	echo " -I, --import-user [given_username] Assign a user data for importing into live system"
+	echo " -o, --isoname [given_name.iso]	Specify output iso file name. Works in mkiso action"
+	#echo "  -t, --initfs-type [ext2|cramfs|initramfs]	Specify initrd type"
+	echo " -v, --verbose       Verbose mode"
+	echo "Advance usage:"
+	echo " --drbl-mode        Use drbl clients as live root filesystem"
+	echo "Ex:"
+	echo "$0"
+	echo "  ( Interactive mode )"
+	echo "$0 -b --mkrootfs --mkrootfs --mkiso --tmpdir /my_path/tmp --outputdir /my_path/output -o my-tux2live-cd.iso -I account"
+	echo "  ( Batch mode to create rootfs and iso files for live system with assigned 'tmp','output' directory and import 'account' data then named the iso as 'tux2live-cd.iso' )"
+
+}
+DEBUG_MESSAGE(){
+
+	local _mesg=$1
+	
+	$SETCOLOR_WARNING; echo -n -e "[DEBUG]"; $SETCOLOR_NORMAL; echo -n $_mesg ;$SETCOLOR_WARNING; echo "[/DEBUG]"; $SETCOLOR_NORMAL; 
+
+}
+WAIT_UNTIL_COMM(){
+
+	local _wait_comm=$1
+
+	until [ -z "$(ps aux| grep "$_wait_comm" |grep -v "grep $_wait_comm" )" ]; do
+		echo -n '.'
+		sleep 3
+	done
+
+}
+
+check_commands(){
+	
+	local commlists=$1;
+
+	for comm_name in $commlists; do
+		echo -n "check command: $comm_name ... "
+		which $comm_name 1>/dev/null 2>&1
+		if [ "$?" = "0" ]; then
+			$SETCOLOR_SUCCESS && echo "[Ready]" && $SETCOLOR_NORMAL
+			_BROWNDOG_ENV_CHECK_STACKS="c:$comm_name;$_BROWNDOG_ENV_CHECK_STACKS"
+		else
+			$SETCOLOR_WARNING && echo "** MISS !! **" && $SETCOLOR_NORMAL
+		fi
+	done
+
+}
+
+
+check_modules(){
+	
+	local modlists=$1;
+
+	for mod_name in $modlists; do
+		echo -n "check module: $mod_name ... "
+		
+		modinfo $mod_name 1>/dev/null 2>&1
+		[ "$?" = "0" ] && mod_config_type=m || mod_config_type=$(grep -i -e "^config_$mod_name=" /boot/config-`uname -r` | awk -F "=" '{print $2}')
+		if [ "$mod_config_type" = "m" ] || [ "$mod_config_type" = "y" ] ; then
+			echo -n ": $mod_config_type"
+			$SETCOLOR_SUCCESS && echo "[Ready]" && $SETCOLOR_NORMAL
+			_BROWNDOG_ENV_CHECK_STACKS="m:$mod_name;$_BROWNDOG_ENV_CHECK_STACKS"
+		else
+			$SETCOLOR_WARNING && echo "** MISS !! **" && $SETCOLOR_NORMAL
+		fi
+	done
+}
+
+check_freespace(){
+	local dirpath=$1
+	
+	[ -d "$dirpath" ] || mkdir $dirpath
+	freespace="$(df -h -P -B G $dirpath 2>/dev/null | tail -n 1 |awk '{ print $4}'| sed -s -e 's/G//g')"
+	echo -n "check free space: $dirpath [${freespace}G]... "
+	[ $freespace -lt 3 ] && ( $SETCOLOR_WARNING; echo "** POOR !! **";  $SETCOLOR_NORMAL )|| ( _BROWNDOG_ENV_CHECK_STACKS="f:$freespace;$_BROWNDOG_ENV_CHECK_STACKS"; $SETCOLOR_SUCCESS && echo "[Ready]"&& $SETCOLOR_NORMAL )
+
+}
+
+check_system_env(){
+
+	# check need commands/modules/free space
+	# _BROWNDOG_ENV_CHECK_STACKS="c:xxx;m:xxx;m:xxx;f:[fre_size];p:xxx"
+	# "c:xxx" mean the command "c" is available
+	_BROWNDOG_ENV_CHECK_STACKS=
+
+	check_commands "$__MKSQUASHFS_COMM $__RSYNC_COMM $__MKISOFS_COMM_00 $__MKISOFS_COMM_01 "
+	check_modules "aufs squashfs unionfs dm_snapshot"
+	check_freespace $_BROWNDOG_OUTPUT_DIR
+	
+	[ "$_DEBUG" == "y" ] && DEBUG_MESSAGE $_BROWNDOG_ENV_CHECK_STACKS
+
+	# find system support 'unionfs' modules, default to use it, like: Debian-like, Mandrive .
+	if [ -n "$(echo "$_BROWNDOG_ENV_CHECK_STACKS" | grep "m:aufs")" -a -n "$(which mkinitramfs 2>/dev/null)" ]; then
+		_BROWNDOG_ROOTFS_METHOD=aufs
+	#  system dosen't support 'unionfs' but 'aufs' modules, like: ??
+	elif [ -n "$(echo "$_BROWNDOG_ENV_CHECK_STACKS" | grep "m:unionfs")" ]; then
+		_BROWNDOG_ROOTFS_METHOD=unionfs
+	#  system dosen't support 'unionfs' and 'aufs'modules, only 'dm_snapshot'. all distro except: Fedora, Centos, RHEL .
+	elif [ -n "$(echo "$_BROWNDOG_ENV_CHECK_STACKS" | grep "m:dm_snapshot")" ]; then
+		_BROWNDOG_ROOTFS_METHOD=dm_snapshot
+	else 
+		_BROWNDOG_ROOTFS_METHOD=
+	fi
+
+	_miss_necessary_module=0
+	if [ -n "$(echo $_BROWNDOG_ENV_CHECK_STACKS | grep -v "m:squashfs")" ]; then
+		_miss_necessary_module='1'; $SETCOLOR_FAILURE; echo "Module required :'$_MKROOTFS_SQUASHFS_MOD'"; $SETCOLOR_NORMAL ;
+	fi
+		
+	_miss_necessary_commands=0
+	if [ -n "$(echo $_BROWNDOG_ENV_CHECK_STACKS | grep -v "c:$__MKSQUASHFS_COMM")" ]; then
+		_miss_necessary_commands='1'; $SETCOLOR_FAILURE; echo "Package required :'$_MKROOTFS_MKSQUASHFS_PKG'"; $SETCOLOR_NORMAL ;
+	fi
+	if [ -n "$(echo $_BROWNDOG_ENV_CHECK_STACKS | grep -v "c:$__RSYNC_COMM")" ]; then 
+		_miss_necessary_commands='1'; $SETCOLOR_FAILURE; echo "Package required :'$_MKROOTFS_RSYNC_PKG'"; $SETCOLOR_NORMAL
+	fi
+	if [ -n "$(echo $_BROWNDOG_ENV_CHECK_STACKS | grep "c:$__MKISOFS_COMM_00")" ]; then 
+		 __MKISOFS_COMM=$__MKISOFS_COMM_00
+	elif [ -n "$(echo $_BROWNDOG_ENV_CHECK_STACKS | grep "c:$__MKISOFS_COMM_01")" ]	; then
+		 __MKISOFS_COMM=$__MKISOFS_COMM_01
+	else
+		_miss_necessary_commands='1'; $SETCOLOR_FAILURE; echo "Package required :'$_MKISO_MKISOFS_PKG'"; $SETCOLOR_NORMAL
+	fi
+
+	if [ -e /etc/debian_version ]; then
+		# Debian
+		BUILD_SYSTEM=$(head -n 1 /etc/issue | awk '{print $1}')
+		_PKG_COMM="dpkg"
+		_PKG_LIST_ARG="-L"
+		_PKG_LISTALL_ARG="-l"
+	elif [ -e /etc/SuSE-release ]; then
+		# Suse
+		BUILD_SYSTEM=Suse
+		_PKG_COMM="rpm"
+		_PKG_LIST_ARG="-q"
+	else 
+		# RH-like
+		BUILD_SYSTEM=$(head -n 1 /etc/issue | awk '{print $1}')
+		_PKG_COMM="rpm"		
+		_PKG_LIST_ARG="-q --quiet"
+		_PKG_LISTALL_ARG="-qa"
+	fi
+
+	# For aufs, like Debian, Ubuntu
+	if [ "$_BROWNDOG_ROOTFS_METHOD" = "aufs" ]; then
+		`which mkinitramfs 1>/dev/null 2>&1`
+		if [ "$?" -ne 0 ]; then 
+			$SETCOLOR_FAILURE; echo "Please make sure you system has 'mkinitramfs' command !!! "; $SETCOLOR_NORMAL
+			exit 1; 
+		fi
+
+		if [ -z "$($_PKG_COMM $_PKG_LISTALL_ARG | grep live-boot 2>/dev/null)"  -a -z "$($_PKG_COMM $_PKG_LISTALL_ARG | grep live-boot-initramfs-tools 2>/dev/null)"  ]; then 
+			$SETCOLOR_WARNING; echo "Suggest to install 'live-boot' or 'live-initramfs' package if them do exist in repository... "; $SETCOLOR_NORMAL
+			[ "$_BATCH_MODE" = 'n' ] && echo -n "Press 'Enter' to continue..." && read _skip
+		fi
+
+	fi
+
+	if [ "$_miss_necessary_commands" = "1" ] || [ "$_miss_necessary_module" = "1" ] || [ -z "$_BROWNDOG_ROOTFS_METHOD" ] ; then 
+		$SETCOLOR_FAILURE; echo "Please prepare all necessary components first !!! "; $SETCOLOR_NORMAL
+		exit 1;
+	else
+		$SETCOLOR_SUCCESS; echo "Use '$_BROWNDOG_ROOTFS_METHOD' method"; echo "Check ready ..."; $SETCOLOR_NORMAL
+	fi
+
+	if [ "$_ACTION" = "check_system_env" -a -z "$_BROWNDOG_ENV_CHECK_STACKS" ]; then 
+		echo -e "*** Checking result:\n\tYour system seems ready for tux2live."
+		echo -e "\t Please run 'sudo ./tux2live -b [parameters]' to build your live system in batch mode\n"
+		exit 0;
+	fi
+
+	_BROWNDOG_BUILD_SYSTEM=$BUILD_SYSTEM
+
+}
+
+drbl_env_check(){
+
+	local _drbl_node_root="/tftpboot/node_root"
+	[ ! -f "/etc/drbl/drbl_deploy.conf" -o ! -f "/tftpboot/nbi_img/kernel_version_in_initrd.txt" -o ! -d "$_drbl_node_root" ] && ( $SETCOLOR_FAILURE; echo "No necessary files for drbl environemnt !!! "; $SETCOLOR_NORMAL ) && exit 1;
+
+	$SETCOLOR_SUCCESS; echo "Use DRBL-mode ..."; $SETCOLOR_NORMAL
+	## 只有/var, /etc才要用到/tftpboot/下的"  , yes, that's what I think, but only SXXnetwork  part
+	_MKROOTFS_ROOT_PATH="/:/ ${_drbl_node_root}/etc:/etc ${_drbl_node_root}/var:/var"
+	_MKROOTFS_NO_SYNC_PATH="/var/tmp/* /tftpboot /opt/drbl /usr/share/doc /etc /var"
+
+	_MKROOTFS_SERVICE_TO_RECOVER="networking network"
+}
+
+
