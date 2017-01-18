@@ -1,0 +1,19 @@
+
+#	File	: /etc/systemd/system/clowder.service 
+#	Usage	: systemctl daemon-reload; systemctl enable clowder.service
+#	Author	: Ceasar Sun
+
+[Unit]
+Description=Clowder Server
+After=network.target
+
+[Service]
+User=clowder
+#Environment=HOME=/home/clowder/clowder
+Environment=HOME=/home/clowder
+#ExecStart=/home/clowder/clowder/bin//clowder -Dhttp.port=9000
+ExecStart=/home/clowder/clowder/bin/clowder -DMONGOUPDATE=1 -DPOSTGRESUPDATE=1 -Dhttp.port=9000
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
