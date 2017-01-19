@@ -1,0 +1,29 @@
+[{
+	"@context": ["https://clowder.ncsa.illinois.edu/clowder/contexts/metadata.jsonld", {
+		"std": "http://clowder.ncsa.illinois.edu/ncsa.csv_stats#std",
+		"median": "http://clowder.ncsa.illinois.edu/ncsa.csv_stats#median",
+		"description": "http://clowder.ncsa.illinois.edu/ncsa.csv_stats#description",
+		"value": "http://clowder.ncsa.illinois.edu/ncsa.csv_stats#value",
+		"mean": "http://clowder.ncsa.illinois.edu/ncsa.csv_stats#mean"
+	}],
+	"created_at": "Mon Jun 20 13:43:12 CDT 2016",
+	"agent": {
+		"@type": "cat:extractor",
+		"name": "https://clowder.ncsa.illinois.edu/clowder/api/extractors/ncsa.csv_stats",
+		"extractor_id": "https://clowder.ncsa.illinois.edu/clowder/api/extractors/ncsa.csv_stats"
+	},
+	"content": {
+		"std": {
+			"description": "Standard deviation of total monthly precipitation",
+			"value": 362.083
+		},
+		"median": {
+			"description": "Median total monthly precipitation",
+			"value": 435.0
+		},
+		"mean": {
+			"description": "Mean total monthly precipitation",
+			"value": 442.0
+		}
+	}
+}]
