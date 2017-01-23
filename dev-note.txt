@@ -1,0 +1,52 @@
+#to-learn-list:
+
+
+-----
+
+
+* 客製化
+	** 語言翻譯
+	** 介面, web layout
+	** mail notification : e.g. mail form , name,...
+
+* france
+================
+## To-try-list
+* How to  Google(social media \) account login ?
+	ask Luigi
+
+* how to enable SSl (HTTPS)
+	* play framework: https://www.playframework.com/
+
+================
+## Done list
+* How to make a space/collection/dataset as private ?
+	done
+
+
+* by default, where does Clodwer store the files ? How to assign local file system path.
+# where to store the blobs (higly recommended)
+service.byteStorage=services.filesystem.DiskByteStorageService
+clowder.diskStorage.path="/home/clowder/storage.clowder"
+
+
+* rabbitmq /extractors setup/configuration
+	* How to check API status :
+		http://brown-dog.nchc.org.tw:9000/api/status
+
+===========
+git clone https://ceasar.sun@opensource.ncsa.illinois.edu/bitbucket/scm/cats/clowder.git
+clowder@brown-dog:~/clowder.git$ ./sbt
+[clowder] $ run
+...
+[info] downloading http://repo1.maven.org/maven2/org/scala-lang/jline/2.10.3/jline-2.10.3.jar ...
+[info]  [SUCCESSFUL ] org.scala-lang#jline;2.10.3!jline.jar (1168ms)
+[info] Done updating.
+
+--- (Running the application from SBT, auto-reloading is enabled) ---
+
+[info] play - Listening for HTTP on /0:0:0:0:0:0:0:0:9000
+
+(Server started, use Ctrl+D to stop and go back to the console...)
+
+
