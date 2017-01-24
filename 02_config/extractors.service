@@ -1,0 +1,20 @@
+
+#	File	: /etc/systemd/system/clowder.service 
+#	Usage	: systemctl daemon-reload; systemctl enable clowder.service
+#	Author	: Ceasar Sun
+
+[Unit]
+Description=Extractors Server
+After=rabbitmq-server.service
+Requires=rabbitmq-server.service
+
+[Service]
+User=clowder
+#Environment=HOME=/home/clowder/clowder
+Environment=HOME=/home/clowder/extractors
+#ExecStartPre=/usr/bin/env ${HOME}/image/bin/activate
+ExecStart=/home/clowder/extractors/image/bin/python ${HOME}/image/preview/ncsa.image.preview.py
+KillMode=process
+
+[Install]
+WantedBy=multi-user.target
