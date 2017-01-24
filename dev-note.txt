@@ -1,15 +1,13 @@
+================
 #to-learn-list:
 
+* Search function : basic search, e.g.: filename,
+	* ticket:  can't add dd metadata
 
------
+* Clowder API usage/how to get the token ?
+* Ployglot configuration/use cae/API usage
+* France detail/ usage
 
-
-* 客製化
-	** 語言翻譯
-	** 介面, web layout
-	** mail notification : e.g. mail form , name,...
-
-* france
 ================
 ## To-try-list
 * How to  Google(social media \) account login ?
@@ -18,6 +16,26 @@
 * how to enable SSl (HTTPS)
 	* play framework: https://www.playframework.com/
 
+* Brown-Dog interface :
+	* france
+
+* 客製化
+	** 語言翻譯
+	** 介面, web layout
+	** mail notification : e.g. mail form , name,...
+
+* Polyglot 安裝
+https://opensource.ncsa.illinois.edu/confluence/pages/viewpage.action?pageId=57737343#Polyglot/SoftwareServerDeveloperDocumentation-Installation
+
+* Polyglot API
+https://opensource.ncsa.illinois.edu/confluence/display/BD/Polyglot+API
+
+* use curl test
+curl -u user:password -X POST -H "X-Atlassian-Token: no-check" -H "Content-Type:image" -F "file=@/tmp/Screen Shot 2016-12-02 at 11.18.09 AM.png" https://opensource.ncsa.illinois.edu/jira/rest/api/2/issue/37357/attachments
+
+localhost:8184/convert/{output_format}
+* 範例：
+curl  -X POST -F "file=@/home/ceasar/Pictures/screenshot.png" http://localhost:8184/convert/jpg
 ================
 ## Done list
 * How to make a space/collection/dataset as private ?
@@ -33,8 +51,20 @@ clowder.diskStorage.path="/home/clowder/storage.clowder"
 * rabbitmq /extractors setup/configuration
 	* How to check API status :
 		http://brown-dog.nchc.org.tw:9000/api/status
+	* Adda extractor startup service:
+		~brown-dog.git/
 
 ===========
+Note:
+
+* make ssh tunnel for QabbitMQ:
+	$ ssh -L 15672:localhost:15672 -N -f -l ceasar brown-dog
+	view http://localhost:15672/
+* make ssh tunnel for elasticsearch
+	$ ssh -L 9200:localhost:9200 -N -f -l ceasar brown-dog
+	view http://localhost:9200/_plugin/head/
+
+* Run via stb
 git clone https://ceasar.sun@opensource.ncsa.illinois.edu/bitbucket/scm/cats/clowder.git
 clowder@brown-dog:~/clowder.git$ ./sbt
 [clowder] $ run
